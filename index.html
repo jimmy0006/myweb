@@ -354,37 +354,50 @@
         // ⚠️ VAPID Key (Firebase 콘솔 > 클라우드 메시징 > 웹 구성에서 생성)
         const VAPID_KEY = "BOxZkYNDhNOwVNmGkLhb17LvaVAcbRmS5hKSK0nnUU7Tmw37oqFmnibotML8If5M-RsTuUROkQGN-7Zxk6xNfxs"; 
 
+        const SERVER_URL = "https://api.hwangjinho.me"; 
+
         // 전역 함수로 등록 (HTML 버튼에서 클릭할 수 있게)
         window.requestNotificationPermission = async function() {
-    try {
-        console.log('1. 권한 요청 시작');
-        const permission = await Notification.requestPermission();
-        console.log('2. 권한 상태:', permission);
+            const name = prompt("누구의 핸드폰인가요? (예: 아빠)");
+            if (!name) return;
 
-        if (permission === 'granted') {
-            console.log('3. 토큰 가져오기 시도...');
-            // 상세 에러를 보기 위해 try-catch를 한 번 더 감쌉니다.
             try {
-                const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-                console.log('4. 토큰 획득 성공:', token);
+                // 단계 1: 권한 요청
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    alert('❌ 권한이 거부되었습니다.');
+                    return;
+                }
+
+                // 단계 2: 토큰 가져오기 (여기서 에러나면 VAPID 키나 HTTPS 문제)
+                let token;
+                try {
+                    token = await getToken(messaging, { vapidKey: VAPID_KEY });
+                    console.log('✅ 토큰 획득 성공:', token);
+                } catch (tokenError) {
+                    console.error(tokenError);
+                    alert('❌ [단계2 실패] 토큰을 못 가져왔어요.\n' + tokenError.message);
+                    return;
+                }
                 
-                await axios.post('http://localhost:3000/tokens', { // ⚠️ 실제 배포시엔 도메인 주소로 변경
-                    token: token,
-                    deviceName: prompt("이름을 입력하세요") || "익명"
-                });
-                alert('성공!');
-            } catch (tokenError) {
-                console.error('❌ 토큰 가져오기 실패 상세:', tokenError);
-                alert('토큰 오류: ' + tokenError.message);
+                // 단계 3: 서버로 전송 (여기서 에러나면 CORS 또는 서버 문제)
+                try {
+                    await axios.post(`${SERVER_URL}/tokens`, {
+                        token: token,
+                        deviceName: name
+                    });
+                    alert(`✅ [성공] 반가워요 ${name}님! 설정 완료.`);
+                    document.getElementById('notiBtn').classList.add('active');
+                } catch (serverError) {
+                    console.error(serverError);
+                    alert('❌ [단계3 실패] 서버 연결 오류!\n서버 CORS 설정을 확인하거나 재배포해주세요.\n' + serverError.message);
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert('❌ 알 수 없는 오류: ' + error.message);
             }
-        } else {
-            alert('알림 권한이 거부되었습니다.');
-        }
-    } catch (error) {
-        console.error('❌ 전체 설정 실패:', error);
-        alert('설정 오류: ' + error.message);
-    }
-};
+        };
 
         // 앱이 켜져있을 때 알림 받기
         onMessage(messaging, (payload) => {
@@ -399,7 +412,9 @@
     <script>
         // 기존 캘린더 로직
         dayjs.locale('ko');
-        const API_URL = 'https://api.hwangjinho.me/events'; // ⚠️ 서버 주소 확인 (Cloudflare 사용 시 도메인으로 변경)
+        const API_BASE = 'https://api.hwangjinho.me';
+        const API_URL = `${API_BASE}/events`;
+        const TOKEN_URL = `${API_BASE}/tokens`;
 
         let currentDate = dayjs();
         let selectedDate = dayjs();
@@ -409,6 +424,25 @@
             lucide.createIcons();
             fetchEvents();
         });
+
+        async function checkSubscribers() {
+            try {
+                const res = await axios.get(TOKEN_URL);
+                const users = res.data;
+
+                if (users.length === 0) {
+                    alert("아직 알림을 받는 사람이 없어요.");
+                    return;
+                }
+
+                const userList = users.map(u => `📱 ${u.deviceName}`).join('\n');
+                alert(`[현재 알림 받는 가족: ${users.length}명]\n\n${userList}`);
+
+            } catch (error) {
+                console.error(error);
+                alert("목록을 불러오지 못했어요.");
+            }
+        }
 
         async function fetchEvents() {
             try {
@@ -534,4 +568,5 @@
 </body>
 
 </html>
+
 
