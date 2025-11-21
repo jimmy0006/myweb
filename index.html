@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 가족 달력</title>
+    
+    <!-- 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/locale/ko.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* 기존 스타일 유지 */
+        :root {
+            --primary-color: #4f46e5;
+            --primary-light: #e0e7ff;
+            --text-color: #1f2937;
+            --bg-color: #f9fafb;
+            --white: #ffffff;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            min-height: 100vh;
+            padding-bottom: 80px;
+            background-color: var(--bg-color);
+        }
+        .header {
+            background: var(--white);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+        }
+        .nav-btn:hover { background-color: #f3f4f6; }
+        .month-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+        }
+        .main-content { padding: 1rem; }
+        .week-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+        .sunday { color: #ef4444; }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .day-cell {
+            aspect-ratio: 1;
+            background: var(--white);
+            border: none;
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .day-cell:active { transform: scale(0.95); }
+        .day-cell.selected {
+            background-color: var(--primary-color);
+            color: var(--white);
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+        .day-cell.today {
+            border: 2px solid var(--primary-light);
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        .day-cell.today.selected { border-color: transparent; color: var(--white); }
+        .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            margin-top: 4px;
+        }
+        .day-cell.selected .dot { background-color: #c7d2fe; }
+        .event-card {
+            background: var(--white);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            min-height: 200px;
+        }
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .date-title { font-size: 1.125rem; font-weight: 700; }
+        .badge {
+            font-size: 0.75rem;
+            background: #f3f4f6;
+            padding: 0.25rem 0.6rem;
+            border-radius: 99px;
+            color: #6b7280;
+        }
+        .event-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background-color: #eef2ff;
+            border-radius: 0.75rem;
+            margin-bottom: 0.75rem;
+            align-items: flex-start;
+        }
+        .time-box {
+            background: var(--white);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 0.85rem;
+            min-width: 55px;
+            text-align: center;
+        }
+        .event-info { flex: 1; }
+        .event-title { font-weight: 600; font-size: 0.95rem; margin: 0; }
+        .event-desc { font-size: 0.85rem; color: #6b7280; margin: 0.25rem 0 0 0; }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+        .delete-btn:hover { color: #ef4444; }
+        .fab {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s;
+            z-index: 50;
+        }
+        .fab:active { transform: scale(0.9); }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 100;
+            padding: 1rem;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: var(--white);
+            width: 100%;
+            max-width: 480px;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: #374151; }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            outline: none;
+        }
+        .form-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 2px var(--primary-light); }
+        .btn-group { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+        .btn {
+            flex: 1;
+            padding: 0.875rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-cancel { background-color: #f3f4f6; color: #4b5563; }
+        .btn-submit { background-color: var(--primary-color); color: white; }
+        .empty-state {
+            text-align: center;
+            padding: 2rem 0;
+            color: #9ca3af;
+        }
+        /* 알림 버튼 스타일 */
+        .noti-btn {
+            background-color: #f3f4f6;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            color: #4b5563;
+        }
+        .noti-btn.active { color: var(--primary-color); background-color: var(--primary-light); }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="logo">
+                <i data-lucide="calendar" color="#4f46e5"></i>
+                <span>우리 가족 달력</span>
+            </div>
+            <!-- 알림 권한 요청 버튼 -->
+            <button id="notiBtn" class="noti-btn" onclick="requestNotificationPermission()">
+                <i data-lucide="bell"></i>
+            </button>
+        </header>
+
+        <main class="main-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                 <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="nav-btn" onclick="changeMonth(-1)"><i data-lucide="chevron-left"></i></button>
+                    <span class="month-title" id="monthDisplay"></span>
+                    <button class="nav-btn" onclick="changeMonth(1)"><i data-lucide="chevron-right"></i></button>
+                </div>
+            </div>
+           
+            <div class="week-days">
+                <div class="sunday">일</div>
+                <div>월</div>
+                <div>화</div>
+                <div>수</div>
+                <div>목</div>
+                <div>금</div>
+                <div>토</div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+
+            <div class="event-card">
+                <div class="event-header">
+                    <span class="date-title" id="selectedDateTitle"></span>
+                    <span class="badge" id="eventCountBadge">0개의 일정</span>
+                </div>
+                <div id="eventListContainer"></div>
+            </div>
+        </main>
+
+        <button class="fab" onclick="openModal()">
+            <i data-lucide="plus"></i>
+        </button>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; font-size: 1.25rem;">새 일정 추가</h3>
+            <form id="addEventForm" onsubmit="handleAddEvent(event)">
+                <div class="form-group">
+                    <label class="form-label">제목</label>
+                    <input type="text" id="inputTitle" class="form-input" placeholder="예: 가족 여행" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">날짜</label>
+                        <input type="text" id="inputDate" class="form-input" readonly style="background-color: #f9fafb;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">시간</label>
+                        <input type="time" id="inputTime" class="form-input" value="12:00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">메모</label>
+                    <textarea id="inputDesc" class="form-textarea" rows="3" placeholder="상세 내용..."></textarea>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">취소</button>
+                    <button type="submit" class="btn btn-submit">등록하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (모듈 타입) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js";
+
+        // ⚠️ Firebase 콘솔에서 복사해오세요!
+        const firebaseConfig = {
+            apiKey: "AIzaSyCifajDhIDpDwS2inu5cxJQ7XsGIWaAIIA",
+            authDomain: "home-planner-3322b.firebaseapp.com",
+            projectId: "home-planner-3322b",
+            storageBucket: "home-planner-3322b.firebasestorage.app",
+            messagingSenderId: "617177235542",
+            appId: "1:617177235542:web:8388d7a1a3d20595053bf7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+        
+        // ⚠️ VAPID Key (Firebase 콘솔 > 클라우드 메시징 > 웹 구성에서 생성)
+        const VAPID_KEY = "BOxZkYNDhNOwVNmGkLhb17LvaVAcbRmS5hKSK0nnUU7Tmw37oqFmnibotML8If5M-RsTuUROkQGN-7Zxk6xNfxs"; 
+
+        // 전역 함수로 등록 (HTML 버튼에서 클릭할 수 있게)
+        window.requestNotificationPermission = async function() {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    console.log('알림 권한 허용됨');
+                    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+                    
+                    if (token) {
+                        console.log('FCM Token:', token);
+                        // 서버로 토큰 전송
+                        await axios.post('http://api.hwangjinho.me/tokens', {
+                            token: token,
+                            deviceName: navigator.userAgent
+                        });
+                        alert('알림 설정이 완료되었습니다!');
+                        document.getElementById('notiBtn').classList.add('active');
+                    }
+                } else {
+                    alert('알림 권한이 차단되었습니다.');
+                }
+            } catch (error) {
+                console.error('알림 설정 실패:', error);
+                alert('알림 설정 중 오류가 발생했습니다.');
+            }
+        };
+
+        // 앱이 켜져있을 때 알림 받기
+        onMessage(messaging, (payload) => {
+            console.log('메시지 수신:', payload);
+            const { title, body } = payload.notification;
+            // 브라우저 알림 띄우기
+            new Notification(title, { body });
+            // (옵션) UI에 토스트 메시지 띄우기 등의 처리 가능
+        });
+    </script>
+
+    <script>
+        // 기존 캘린더 로직
+        dayjs.locale('ko');
+        const API_URL = 'http://api.hwangjinho.me/events'; // ⚠️ 서버 주소 확인 (Cloudflare 사용 시 도메인으로 변경)
+
+        let currentDate = dayjs();
+        let selectedDate = dayjs();
+        let events = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            fetchEvents();
+        });
+
+        async function fetchEvents() {
+            try {
+                const res = await axios.get(API_URL);
+                events = res.data;
+                renderCalendar();
+                renderEventList();
+            } catch (error) {
+                console.error('데이터 로딩 실패:', error);
+            }
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            document.getElementById('monthDisplay').innerText = currentDate.format('M월');
+
+            const startOfMonth = currentDate.startOf('month');
+            const daysInMonth = currentDate.daysInMonth();
+            const startDay = startOfMonth.day();
+
+            for (let i = 0; i < startDay; i++) {
+                const emptyCell = document.createElement('div');
+                grid.appendChild(emptyCell);
+            }
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const date = currentDate.date(i);
+                const isSelected = date.isSame(selectedDate, 'day');
+                const isToday = date.isSame(dayjs(), 'day');
+                const hasEvent = events.some(e => dayjs(e.start).isSame(date, 'day'));
+
+                const cell = document.createElement('button');
+                cell.className = `day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`;
+                cell.onclick = () => selectDate(i);
+                
+                let html = `<span>${i}</span>`;
+                if (hasEvent) html += `<div class="dot"></div>`;
+                cell.innerHTML = html;
+                grid.appendChild(cell);
+            }
+        }
+
+        function selectDate(day) {
+            selectedDate = currentDate.date(day);
+            renderCalendar();
+            renderEventList();
+        }
+
+        function changeMonth(delta) {
+            currentDate = currentDate.add(delta, 'month');
+            renderCalendar();
+        }
+
+        function renderEventList() {
+            const container = document.getElementById('eventListContainer');
+            document.getElementById('selectedDateTitle').innerText = selectedDate.format('M월 D일 (ddd)');
+            const dailyEvents = events.filter(e => dayjs(e.start).isSame(selectedDate, 'day'));
+            document.getElementById('eventCountBadge').innerText = `${dailyEvents.length}개의 일정`;
+
+            if (dailyEvents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i data-lucide="calendar" size="40" style="opacity:0.2; margin-bottom:0.5rem;"></i>
+                        <p>등록된 일정이 없어요.</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = dailyEvents.map(e => `
+                <div class="event-item">
+                    <div class="time-box">${dayjs(e.start).format('HH:mm')}</div>
+                    <div class="event-info">
+                        <h4 class="event-title">${e.title}</h4>
+                        ${e.description ? `<p class="event-desc">${e.description}</p>` : ''}
+                    </div>
+                    <button class="delete-btn" onclick="deleteEvent('${e._id}')">
+                        <i data-lucide="trash-2" size="16"></i>
+                    </button>
+                </div>`).join('');
+            lucide.createIcons();
+        }
+
+        function openModal() {
+            document.getElementById('inputDate').value = selectedDate.format('YYYY-MM-DD');
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.getElementById('addEventForm').reset();
+        }
+
+        async function handleAddEvent(e) {
+            e.preventDefault();
+            const title = document.getElementById('inputTitle').value;
+            const time = document.getElementById('inputTime').value;
+            const description = document.getElementById('inputDesc').value;
+            const [hour, minute] = time.split(':');
+            const startDateTime = selectedDate.hour(hour).minute(minute).toISOString();
+
+            try {
+                await axios.post(API_URL, {
+                    title, description, start: startDateTime, author: 'Family'
+                });
+                await fetchEvents();
+                closeModal();
+            } catch (error) {
+                alert('일정 추가 실패!');
+            }
+        }
+
+        async function deleteEvent(id) {
+            if(!confirm('정말 삭제하시겠습니까?')) return;
+            try {
+                await axios.delete(`${API_URL}/${id}`);
+                await fetchEvents();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
