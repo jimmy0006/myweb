@@ -356,30 +356,35 @@
 
         // 전역 함수로 등록 (HTML 버튼에서 클릭할 수 있게)
         window.requestNotificationPermission = async function() {
+    try {
+        console.log('1. 권한 요청 시작');
+        const permission = await Notification.requestPermission();
+        console.log('2. 권한 상태:', permission);
+
+        if (permission === 'granted') {
+            console.log('3. 토큰 가져오기 시도...');
+            // 상세 에러를 보기 위해 try-catch를 한 번 더 감쌉니다.
             try {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    console.log('알림 권한 허용됨');
-                    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-                    
-                    if (token) {
-                        console.log('FCM Token:', token);
-                        // 서버로 토큰 전송
-                        await axios.post('http://api.hwangjinho.me/tokens', {
-                            token: token,
-                            deviceName: navigator.userAgent
-                        });
-                        alert('알림 설정이 완료되었습니다!');
-                        document.getElementById('notiBtn').classList.add('active');
-                    }
-                } else {
-                    alert('알림 권한이 차단되었습니다.');
-                }
-            } catch (error) {
-                console.error('알림 설정 실패:', error);
-                alert('알림 설정 중 오류가 발생했습니다.');
+                const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+                console.log('4. 토큰 획득 성공:', token);
+                
+                await axios.post('http://localhost:3000/tokens', { // ⚠️ 실제 배포시엔 도메인 주소로 변경
+                    token: token,
+                    deviceName: prompt("이름을 입력하세요") || "익명"
+                });
+                alert('성공!');
+            } catch (tokenError) {
+                console.error('❌ 토큰 가져오기 실패 상세:', tokenError);
+                alert('토큰 오류: ' + tokenError.message);
             }
-        };
+        } else {
+            alert('알림 권한이 거부되었습니다.');
+        }
+    } catch (error) {
+        console.error('❌ 전체 설정 실패:', error);
+        alert('설정 오류: ' + error.message);
+    }
+};
 
         // 앱이 켜져있을 때 알림 받기
         onMessage(messaging, (payload) => {
@@ -529,3 +534,4 @@
 </body>
 
 </html>
+
