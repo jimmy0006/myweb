@@ -356,12 +356,30 @@
 
         const SERVER_URL = "https://api.hwangjinho.me"; 
 
+        // ✨ [핵심 추가] 서비스 워커 명시적 등록 함수
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    // 파일 위치가 index.html과 같은 곳에 있어야 합니다!
+                    const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+                    console.log('✅ Service Worker 등록 성공:', registration.scope);
+                    return registration;
+                } catch (error) {
+                    console.error('❌ Service Worker 등록 실패:', error);
+                    throw new Error('서비스 워커를 등록할 수 없습니다.');
+                }
+            } else {
+                throw new Error('이 브라우저는 서비스 워커를 지원하지 않습니다.');
+            }
+        }
+
         // 전역 함수로 등록 (HTML 버튼에서 클릭할 수 있게)
         window.requestNotificationPermission = async function() {
             const name = prompt("누구의 핸드폰인가요? (예: 아빠)");
             if (!name) return;
 
             try {
+                const registration = await registerServiceWorker();
                 // 단계 1: 권한 요청
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
@@ -372,7 +390,10 @@
                 // 단계 2: 토큰 가져오기 (여기서 에러나면 VAPID 키나 HTTPS 문제)
                 let token;
                 try {
-                    token = await getToken(messaging, { vapidKey: VAPID_KEY });
+                    token = await getToken(messaging, { 
+                        vapidKey: VAPID_KEY,
+                        serviceWorkerRegistration: registration
+                    });
                     console.log('✅ 토큰 획득 성공:', token);
                 } catch (tokenError) {
                     console.error(tokenError);
@@ -568,5 +589,6 @@
 </body>
 
 </html>
+
 
 
