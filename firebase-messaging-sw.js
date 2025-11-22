@@ -15,17 +15,18 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 // 2. 백그라운드 메시지 처리
-// const messaging = firebase.messaging();
+const messaging = firebase.messaging();
 
-// messaging.onBackgroundMessage((payload) => {
-//   console.log('[firebase-messaging-sw.js] 백그라운드 메시지 수신:', payload);
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] 백그라운드 메시지 수신:', payload);
   
-//   const notificationTitle = payload.notification.title;
-//   const notificationOptions = {
-//     body: payload.notification.body,
-//     icon: '/icon.png' // (선택사항) 아이콘 경로
-//   };
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: '/icon.png' // (선택사항) 아이콘 경로
+  };
 
-//   self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(notificationTitle, notificationOptions);
 
-// });
+});
+
