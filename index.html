@@ -423,22 +423,31 @@
         // 앱이 켜져있을 때 알림 받기
         onMessage(messaging, (payload) => {
             console.log('메시지 수신(Foreground):', payload);
+            
+            // payload.notification이 없는 경우 대비
+            if (!payload.notification) {
+                console.log('알림 내용이 없습니다.');
+                return;
+            }
+
             const { title, body } = payload.notification;
 
-            // 브라우저가 지원한다면 서비스 워커를 이용해 시스템 알림을 강제로 띄웁니다.
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(registration => {
-                    registration.showNotification(title, {
-                        body: body,
-                        vibrate: [200, 100, 200], // 진동 패턴 (징-징-징)
-                        tag: 'family-calendar',   // 알림 그룹화
-                        renotify: true            // 같은 알림이 와도 다시 진동 울리기
-                        // icon: '/icon.png'      // 아이콘이 있다면 주석 해제
-                    });
+            // [방법 1] 가장 확실한 방법: 표준 Notification API 직접 호출
+            if (Notification.permission === 'granted') {
+                const notification = new Notification(title, {
+                    body: body,
+                    // icon: '/icon.png', // 아이콘이 있다면 주석 해제
+                    vibrate: [200, 100, 200],
                 });
+
+                // 알림 클릭 시 현재 창으로 포커스 이동
+                notification.onclick = function(event) {
+                    event.preventDefault(); // 브라우저 기본 동작 방지
+                    window.focus();         // 창 활성화
+                    notification.close();   // 알림 닫기
+                };
             } else {
-                // 서비스 워커 미지원 브라우저 대비 (기존 방식)
-                new Notification(title, { body });
+                console.log('알림 권한이 없습니다.');
             }
         });
     </script>
@@ -602,6 +611,7 @@
 </body>
 
 </html>
+
 
 
 
